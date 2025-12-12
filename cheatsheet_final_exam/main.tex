@@ -415,7 +415,7 @@ y_{ij}\,\log(\hat{y}_{ij})
     \item Cross-entropy measures how different the true class distribution
           $\mathbf{y}$ is from the predicted distribution $\hat{\mathbf{y}}$;
           it increases as predictions become less confident or incorrect.
-    \item For a single sample, only the log--probability of the true class matters,
+    \item For a single sample, only the log-probability of the true class matters,
           since $y_c = 1$ and all other $y_j = 0$.
     \item With a Softmax output, $\hat{y}_j \in (0,1)$ and never equals zero,
           preventing issues such as $\log(0)$ and ensuring stable gradients.
