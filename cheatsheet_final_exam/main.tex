@@ -1,0 +1,702 @@
+\documentclass[8pt,a4paper]{extarticle}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{multicol}
+\usepackage{geometry}
+\usepackage{amsmath, amssymb, amsfonts, mathtools}
+\usepackage{graphicx}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{caption}
+
+% --- LAYOUT CONFIGURATION ---
+\geometry{top=0.2in, bottom=0.2in, left=0.2in, right=0.2in}
+\setlength{\columnsep}{0.3in}
+\setlength{\columnseprule}{0.2pt}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.2em}
+
+% --- FONTS & STYLING ---
+\renewcommand{\familydefault}{\sfdefault}
+\newcommand{\mysection}[1]{\vspace{0.1cm}\hrule\vspace{0.1cm}\textbf{\uppercase{#1}}\vspace{0.1cm}\hrule\vspace{0.1cm}}
+\newcommand{\mysubsection}[1]{\vspace{0.05cm}\textbf{\underline{#1}}\vspace{0.05cm}}
+\newcommand{\term}[1]{\textbf{#1}}
+\newcommand{\code}[1]{\texttt{#1}}
+
+% --- COMPACT LISTS ---
+\setlist[itemize]{leftmargin=*, noitemsep, topsep=0pt, parsep=0pt}
+\setlist[enumerate]{leftmargin=*, noitemsep, topsep=0pt, parsep=0pt}
+
+\begin{document}
+
+\begin{multicols*}{2}
+
+% =================================================================================
+% PAGE 1: TASK ALLOCATION & COLLECTIVE DECISION MAKING
+% =================================================================================
+
+\mysection{L20: Task Allocation \& Markets}
+
+\mysubsection{Market-Based Approaches (Auctions)}
+Robots act as self-interested agents maximizing individual utility (profit).
+\begin{itemize}
+    \item \term{Utility Function:} $U_i(T) = R(T) - C_i(T)$, where $R$ is reward and $C$ is cost.
+    \item \term{Objective Functions (Team Metrics):}
+    \begin{itemize}
+        \item \term{MiniSum (Efficiency):} Min total cost, $\sum_{i} \sum_{j \in A_i} c_{ij}$. (e.g., total fuel).
+        \item \term{MiniMax (Makespan):} Min max cost, $\min (\max_{i} \sum_{j \in A_i} c_{ij})$. (e.g., mission time).
+        \item \term{MiniAvg (flowtime):} Min avg cost, $\min (avg_{i} \sum_{j \in A_i} c_{ij})$. (e.g., mission time).
+    \end{itemize}
+\end{itemize}
+
+\mysubsection{Auction Types}
+\begin{enumerate}
+    \item \term{Parallel Auctions:} All tasks auctioned simultaneously. No dependencies. Bid is an approximate Marginal Cost.
+    \begin{itemize}
+        \item \textit{Pros:} Fastest. \textit{Cons:} Robots ignore synergies (interference/coupling). High risk of sub-optimal allocation for complex tasks.
+    \end{itemize}
+    \item \term{Combinatorial Auctions:} Bids submitted on \textit{bundles} of tasks ($S \subseteq T$).
+    \begin{itemize}
+        \item Robot $i$ bids $b_i(S)$ for subset $S$.
+        \item \term{Winner Determination Problem (WDP):} The auctioneer finds non-overlapping allocation maximizing revenue.
+        \[ \max \sum_{i} b_i(S_i) \quad \text{s.t.} \quad S_i \cap S_j = \emptyset \]
+        \item \textit{Complexity:} Equivalent to Weighted Set Packing (NP-Hard).
+    \end{itemize}
+    \item \term{Sequential Auctions (Single-Item):} Tasks auctioned one by one. Each robot bids accounting for dependencies with its tasks so far. This is the most important type.
+    \begin{itemize}
+        \item \term{Greedy Bidding:} Robot $i$ bids its exact \textit{Marginal Cost} to add task $t$ to its current schedule $J_i$:
+        \[ MC(t, J_i) = Cost(J_i \cup \{t\}) - Cost(J_i) \]
+        \item \textit{Pros:} Polynomial time ($O(N \cdot T)$). Good for dynamic environments.
+    \end{itemize}
+\end{enumerate}
+
+\begin{center}
+\includegraphics[width=0.4\textwidth]{../images/market_base_approx_ratio.png}
+\captionof{figure}{Auction Types approximation ratios}
+\end{center}
+
+
+\mysubsection{Emergent Task Allocation (Swarm Intelligence)}
+Coordination via \term{Stigmergy} (indirect communication through environment). No central controller.
+
+\textbf{1. Ant Corpse Clustering / Sorting}
+Agents pick up items from low-density areas and drop them in high-density areas.
+\begin{itemize}
+    \item $f$: Local density of similar items in neighborhood.
+    \item $k_1, k_2$: Threshold constants.
+    \item \term{Pick-up Probability ($P_p$):} Decreases as density $f$ increases.
+    \item \term{Drop Probability ($P_d$):} Increases as density $f$ increases.
+\end{itemize}
+
+\textbf{2. Response Threshold Models}
+Probabilistic division of labor based on stimulus $s_j$ (task demand) and internal threshold $\theta_{ij}$.
+\begin{itemize}
+    \item \term{Response Probability:}
+    \[ P(\text{act}) = \frac{s_j^n}{s_j^n + \theta_{ij}^n} \]
+    \item $n > 1$: Determines steepness (step-function like for high $n$). Usually $n=2$.
+    \item \term{Adaptive Thresholds (RL):}
+    \begin{itemize}
+        \item If agent performs task $j$: $\theta_{ij} \leftarrow \theta_{ij} - \Delta$ (Specialization).
+        \item If agent is idle/fails: $\theta_{ij} \leftarrow \theta_{ij} + \delta$ (Forgetting).
+    \end{itemize}
+    The sum of the above 2 is the total change in threshold.
+    Adaptive Threshold is considered a hybrid of response threshold and reinforcement learning.
+\end{itemize}
+
+
+\mysection{L21: RL \& Machine Learning in MRTA}
+
+\mysubsection{Why Machine Learning for MRTA?}
+Standard Market methods rely on \textit{known} cost functions $C(t)$. In reality, costs are uncertain (e.g., hidden debris, traffic).
+\begin{itemize}
+    \item \term{Goal:} Learn to estimate costs, learn bidding strategies, or learn allocation policies directly from experience.
+\end{itemize}
+
+\mysubsection{Reinforcement Learning (RL) Approaches}
+Agents learn policy $\pi(s)$ to maximize expected cumulative reward.
+
+\textbf{1. The Credit Assignment Problem (Reward Shaping)}
+How do we reward individual agents for team behavior?
+\begin{itemize}
+    \item \term{Global Reward $G(z)$:} Team performance (e.g., Total Time).
+    \begin{itemize}
+        \item \textit{Pros:} Aligned with goal. \textit{Cons:} High noise. "Did I succeed, or did the team carry me?" Slow learning ($1/N$).
+    \end{itemize}
+    \item \term{Local Reward $L_i(z)$:} Individual performance (e.g., Tasks I did).
+    \begin{itemize}
+        \item \textit{Pros:} Fast learning. \textit{Cons:} Greedy/Suboptimal. Robots steal tasks or ignore cooperation.
+    \end{itemize}
+    \item \term{Difference Reward $D_i(z)$:} The "Marginal Contribution".
+    \[ D_i(z) = G(z) - G(z_{-i}) \]
+    \begin{itemize}
+        \item $z$: Full system state. $z_{-i}$: System state \textit{without} agent $i$.
+    \end{itemize}
+\end{itemize}
+
+\textbf{2. RL for Bidding (Adaptive Auctions)}
+Agents use Q-learning to value tasks instead of hardcoded heuristics.
+\begin{itemize}
+    \item \term{State $s$:} Context (Battery, Location, Current Load).
+    \item \term{Action $a$:} Bid value $b$ or Task Selection.
+    \item \term{Q-Update:}
+    \[ Q(s,a) \leftarrow (1-\alpha)Q(s,a) + \alpha \left( r + \gamma \max_{a'} Q(s', a') \right) \]
+    \item \term{Outcome:} Agents learn to bid low on tasks they are bad at (high cost) and high on tasks they are good at, even if the math model is unknown.
+\end{itemize}
+
+\begin{center}
+\includegraphics[width=0.3\textwidth]{../images/cat_being_cat.png}
+\captionof{figure}{calm down with this funny cat}
+\end{center}
+
+\mysubsection{Deep Learning / GNNs in MRTA}
+\begin{itemize}
+    \item Not strictly RL, but related.
+    \item \term{Problem:} WDP is NP-Hard. Auctions are slow (communication).
+    \item \term{Idea:} Train a Graph Neural Network (GNN) to predict the optimal assignment matrix $A_{ij}$ in one shot.
+    \item \term{Input:} Spatial graph (Nodes=Robots/Tasks, Edges=Distances).
+    \item \term{Output:} Probability distribution over allocations.
+    \item \term{Key Advantage:} "Deep models learn relational reasoning implicitly." They see spatial patterns (e.g., clusters) and assign teams without explicit combinatorial search.
+\end{itemize}
+
+
+\mysection{L22: Wisdom of Crowds}
+\mysubsection{Core Concept}
+Aggregating judgments of a group often outperforms individual experts.
+
+\mysubsection{Condorcet Jury Theorem (Binary Choice)}
+Assume $N$ voters, binary decision (Correct/Wrong).
+\begin{itemize}
+    \item Each voter is independent and has probability $p > 0.5$ of being correct iff
+    \[ \lim_{N \to \infty} P(\text{Majority is Correct}) = 1 \]
+\end{itemize}
+
+\mysubsection{Diversity Prediction Theorem (Continuous)}
+Each individual estimate can be written as:
+$s_i = \theta + b_i + \epsilon_i,$
+where:
+\begin{itemize}
+    \item $\theta$: the true value,
+    \item $b_i$: individual bias (systematic shift),
+    \item $\epsilon_i$: random noise (zero-mean).
+\end{itemize}
+\[ \underbrace{(c - \theta)^2}_{\text{Collective Error}} = \underbrace{\frac{1}{N} \sum_{i=1}^N (s_i - \theta)^2}_{\text{Avg Individual Error}} - \underbrace{\frac{1}{N} \sum_{i=1}^N (s_i - c)^2}_{\text{Diversity}} \]
+\begin{itemize}
+    \item \term{Collective Error:} Squared error of the mean.
+    \item \term{Avg Individual Error:} How accurate the average person is.
+    \item \term{Diversity:} The variance of the opinions.
+    \item \term{Implication:} Collective error is \textit{always} less than or equal to the average individual error. Diversity ($Var(s)$) reduces error "for free".
+\end{itemize}
+
+\mysubsection{Conditions for Wisdom (Surowiecki)}
+\begin{enumerate}
+    \item \term{Diversity of Opinion:} Each person has some private information.
+    \item \term{Independence:} Opinions are not determined by others.
+    \item \term{Decentralization:} People specialize/draw on local knowledge.
+    \item \term{Aggregation:} Mechanism to turn private judgments into collective decision (voting, markets, averaging).
+\end{enumerate}
+
+\mysubsection{Failures (Madness of Crowds)}
+\begin{itemize}
+    \item \term{Information Cascades:} Sequential decision making where later people ignore their own info to follow predecessors. Violates Independence.
+    \item \term{Social Influence/Herding:} Correlated errors prevent variance reduction.
+\end{itemize}
+
+% =================================================================================
+% PAGE 2: DISTRIBUTED CONSENSUS & NEURAL NETWORKS BASICS
+% =================================================================================
+
+\mysection{L23-24: Distributed Consensus}
+
+\mysubsection{1. Graph Theoretic Formulation}
+Consider a network of $N$ agents.
+\begin{itemize}
+    \item \term{Graph:} $G = (V, E)$. $V = \{1, \dots, N\}$, $E \subseteq V \times V$.
+    \item \term{Adjacency Matrix ($A$):} $a_{ij} > 0$ if $(j, i) \in E$, else $0$.
+    \item \term{Degree Matrix ($D$):} Diagonal, $d_{ii} = \deg_{in}(i) = \sum_{j} a_{ij}$.
+    \item \term{Laplacian Matrix ($L$):} $L = D - A$.
+\end{itemize}
+\term{Laplacian Properties:}
+\begin{itemize}
+    \item \term{Row Sums:} $L \mathbf{1} = \mathbf{0}$. ($\mathbf{1}$ is eigenvector for $\lambda_1 = 0$).
+    \item \term{Spectrum:} $0 = \lambda_1 \le \lambda_2 \le \dots \le \lambda_N$.
+    \item \term{Symmetry:} If $G$ undirected, $L$ symmetric $\implies$ real eigenvalues.
+    \item \term{Algebraic Connectivity ($\lambda_2$):} $G$ is connected iff $\lambda_2 > 0$.
+    \item \term{Eigenvalue Bound:} $\lambda_N \le 2 \Delta_{max}$ (where $\Delta$ is max degree).
+\end{itemize}
+
+\mysubsection{2. Continuous-Time Consensus}
+Protocol: Move towards neighbors.
+
+\term{Matrix Dynamics:}
+\[ \dot{x}(t) = -L x(t) \]
+\term{Solution Trajectory:}
+\[ x(t) = e^{-Lt} x(0) \]
+\term{Eigen-Decomposition (for undirected $G$):}
+Let $v_k$ be eigenvectors of $L$ with eigenvalues $\lambda_k$.
+\[ x(t) = \sum_{k=1}^N c_k e^{-\lambda_k t} v_k \]
+
+\term{Convergence State (Average Consensus):}
+\[ x(\infty) = (\mathbf{1}^T x(0) / N) \mathbf{1} = \alpha \mathbf{1}, \quad \alpha = \text{Ave}(x(0)) \]
+\term{Convergence Rate:}
+Bounded by second smallest eigenvalue $\lambda_2$ (Fiedler value).
+\[ \| x(t) - \alpha \mathbf{1} \| \le \| x(0) \| e^{-\lambda_2 t} \]
+Time constant $\tau = 1/\lambda_2$.
+
+\mysubsection{3. Discrete-Time Consensus}
+Update rule with step size $\epsilon$:
+\[ x_i(k+1) = x_i(k) + \epsilon \sum_{j \in N_i} a_{ij} (x_j(k) - x_i(k)) \]
+\term{Matrix Dynamics:}
+\[ x(k+1) = (I - \epsilon L) x(k) = P x(k) \]
+where $P$ is the Consensus Matrix.
+\term{Properties of $P$:}
+\begin{itemize}
+    \item \term{Row Stochastic:} $P \mathbf{1} = \mathbf{1}$ (Rows sum to 1).
+    \item \term{Eigenvalues of $P$:} $\mu_i = 1 - \epsilon \lambda_i$.
+    \item \term{Stability Condition:} Need $|\mu_i| \le 1$ for all $i$.
+    \[ 0 < \epsilon < \frac{2}{\lambda_{max}} \quad \text{or} \quad \epsilon < \frac{1}{\Delta_{max}} \]
+    \item \term{Doubly Stochastic:} If $G$ undirected, $P$ is symmetric (Rows \& Cols sum to 1). $\implies$ Average is preserved.
+\end{itemize}
+
+\mysubsection{4. Non-Linear Consensus: Kuramoto Model}
+Used for synchronization of phases $\theta_i \in S^1$.
+\[ \dot{\theta}_i = \omega_i + \frac{K}{N} \sum_{j=1}^N \sin(\theta_j - \theta_i) \]
+\begin{itemize}
+    \item $\omega_i$: Natural frequency of oscillator $i$.
+    \item $K$: Coupling strength.
+    \item \term{Order Parameter ($r$):} Measures coherence.
+    \[ r e^{i \psi} = \frac{1}{N} \sum_{j=1}^N e^{i \theta_j} \]
+    \item $r \approx 0$ (Incoherent), $r \approx 1$ (Synchronized).
+    \item \term{Critical Coupling $K_c$:} Phase transition occurs at $K_c$.
+\end{itemize}
+
+\mysubsection{5. Robotic Flocking / Formation Control}
+Combining consensus with alignment and cohesion.
+State vectors: Position $x_i$, Heading $\theta_i$.
+\term{Heading Control (Kuramoto-style):}
+\[ \dot{\theta}_i = \omega_i + \sum_{j \in N_i} K_{ij} \sin(\theta_j - \theta_i) \]
+\term{Position Control (Kinematics):}
+\[ \dot{x}_i = v_i \begin{bmatrix} \cos \theta_i \\ \sin \theta_i \end{bmatrix} \]
+\term{Formation Control Law:}
+To maintain formation distance $d_{ij}$:
+\[ u_i = - \sum_{j \in N_i} (\|x_i - x_j\|^2 - d_{ij}^2)(x_i - x_j) \]
+This acts as a spring-mass system minimizing potential energy.
+
+\mysubsection{6. Comparison}
+
+\begin{tabularx}{\columnwidth}{@{}l|l|l@{}}
+\toprule
+\textbf{Feature} & \textbf{Consensus (Single Int)} & \textbf{Kuramoto} \\ \midrule
+State Space & $\mathbb{R}^n$ (Euclidean) & $S^1$ (Angular) \\
+Interaction & Linear Diff $(x_j - x_i)$ & Sinusoidal $\sin(\theta_j - \theta_i)$ \\
+Equilibrium & $x_i = x_j$ (Point) & $\dot{\theta}_i = \dot{\theta}_j$ (Sync) \\
+Application & Rendezvous, Sensor Fusion & Flocking, Clocks \\ \bottomrule
+\end{tabularx}
+
+\mysection{L25-L26: Neural Networks (Basics)}
+
+\mysubsection{The Perceptron}
+Linear binary classifier. Inputs $x$, Weights $w$, Bias $b$.
+\[ z = w \cdot x + b = \sum w_i x_i + b \]
+\[ y = \begin{cases} 1 & \text{if } z > 0 \\ 0 & \text{else} \end{cases} \]
+\textit{Limitation:} Can only solve linearly separable problems (No XOR).
+
+\mysubsection{Activation Functions $\phi(z)$}
+Required to stack layers (Linear of Linear is still Linear).
+\begin{itemize}
+    \item \term{Sigmoid:} $\sigma(z) = \frac{1}{1+e^{-z}}$. Range $(0,1)$.
+    \begin{itemize}
+        \item Deriv: $\sigma(z)(1-\sigma(z))$.
+        \item \textit{Prob:} Vanishing gradient for large $|z|$. Not zero-centered.
+    \end{itemize}
+    \item \term{Tanh:} $\tanh(z)$. Range $(-1, 1)$. Zero-centered.
+    \begin{itemize}
+        \item Deriv: $1 - \tanh^2(z)$. Still vanishes.
+    \end{itemize}
+    \item \term{ReLU:} $\max(0, z)$. Range $[0, \infty)$.
+    \begin{itemize}
+        \item Deriv: $1$ if $z>0$, $0$ if $z<0$.
+        \item \textit{Pros:} Fast, no vanishing gradient in $+$ region.
+        \item \textit{Cons:} Dead ReLU (if weights push $z < 0$ always).
+    \end{itemize}
+    \item \term{Softmax:} $p_i = \frac{e^{z_i}}{\sum_j e^{z_j}}$. For multi-class probability.
+\end{itemize}
+
+\mysubsection{Loss Functions $J(\theta)$}
+\begin{itemize}
+    \item \term{MSE (Regression):} $J = \frac{1}{N} \sum (y - \hat{y})^2$.
+    \item \term{Cross-Entropy (Classification):} $J = - \sum_{k} y_k \log(\hat{y}_k)$.
+    \item \term{Hinge Loss (SVM):} $J = \max(0, 1 - y \cdot \hat{y})$.
+\end{itemize}
+
+\mysubsection{Backpropagation (Chain Rule)}
+Goal: Compute $\nabla_w J$.
+Example: $x \xrightarrow{w} z \xrightarrow{\phi} a \xrightarrow{Loss} J$.
+\[ \frac{\partial J}{\partial w} = \frac{\partial J}{\partial a} \cdot \frac{\partial a}{\partial z} \cdot \frac{\partial z}{\partial w} \]
+\textbf{The Algorithm:}
+1. \term{Forward Pass:} Compute $a^{(l)}$ for all layers.
+2. \term{Backward Pass:} Compute error $\delta^{(L)}$ at output.
+   \[ \delta^{(L)} = \nabla_a J \odot \phi'(z^{(L)}) \]
+3. \term{Propagate:} $\delta^{(l)} = ((W^{(l+1)})^T \delta^{(l+1)}) \odot \phi'(z^{(l)})$.
+4. \term{Gradients:} $\frac{\partial J}{\partial W^{(l)}} = \delta^{(l)} (a^{(l-1)})^T$.
+
+\mysubsection{Optimization}
+\begin{itemize}
+    \item \term{SGD:} $\theta \leftarrow \theta - \eta \nabla J_{sample}$. High variance, escapes local minima.
+    \item \term{Momentum:} $v_t = \gamma v_{t-1} + \eta \nabla J$. $\theta \leftarrow \theta - v_t$. Builds velocity in consistent directions.
+\end{itemize}
+
+% =================================================================================
+% PAGE 3: NN TUNING & CNNs
+% =================================================================================
+
+
+\mysection{L27-L28: Tuning \& CNNs}
+
+\mysubsection{Generalization \& Regularization}
+\begin{itemize}
+    \item \term{Overfitting:} Low Train Loss, High Test Loss. Model learns noise.
+    \item \term{Underfitting:} High Train Loss. Model too simple.
+\end{itemize}
+\textbf{Techniques to fix Overfitting:}
+\begin{enumerate}
+    \item \term{Dropout:} Randomly zero out neurons with prob $p$ during training.
+    \begin{itemize}
+        \item Training: $\hat{h} = h \odot \text{Bernoulli}(1-p)$.
+        \item Testing: Scale weights by $(1-p)$ (or scale up during train).
+        \item Effect: Prevents co-adaptation, acts as ensemble of $2^N$ nets.
+    \end{itemize}
+    \item \term{Early Stopping:} Monitor Validation Loss. Stop when it rises.
+    \item \term{Data Augmentation:} Flip, rotate, crop images to increase $N$.
+\end{enumerate}
+
+\mysubsection{Data Preprocessing}
+\begin{itemize}
+    \item \term{Normalization:} $(x - \mu) / \sigma$. Ensures gradients scale equally for all weights.
+    \item \term{Weight Initialization:}
+    \begin{itemize}
+        \item \textit{Zero:} Fails (neurons symmetric, learn same thing).
+        \item \textit{Xavier (Glorot):} Var $= 2/(n_{in} + n_{out})$. Good for Sigmoid/Tanh.
+        \item \textit{He Init:} Var $= 2/n_{in}$. Good for ReLU.
+    \end{itemize}
+\end{itemize}
+
+\mysubsection{Cross-entropy loss}
+
+\term{logits = raw scores}
+
+Single sample cross-entropy loss between the true distribution y and the predicted distribution $\hat{y}$:
+
+\[
+\mathrm{CEL}(x, \mathbf{y}, \hat{\mathbf{y}})
+= - \sum_{j=1}^{\text{Classes}} y_j \, \log(\hat{y}_j)
+\]
+
+\[
+\text{For the true class } c:\qquad
+\mathrm{CEL}_{i} = -\log(\hat{y}_c)
+\]
+
+\vspace{2cm}
+
+Cross-entropy loss over the whole dataset:
+
+\[
+\mathrm{CEL}
+= -\frac{1}{N}
+\sum_{i=1}^{N} \sum_{j=1}^{\text{Classes}}
+y_{ij}\,\log(\hat{y}_{ij})
+\]
+
+
+\begin{itemize}
+    \item Cross-entropy measures how different the true class distribution
+          $\mathbf{y}$ is from the predicted distribution $\hat{\mathbf{y}}$;
+          it increases as predictions become less confident or incorrect.
+    \item For a single sample, only the log--probability of the true class matters,
+          since $y_c = 1$ and all other $y_j = 0$.
+    \item With a Softmax output, $\hat{y}_j \in (0,1)$ and never equals zero,
+          preventing issues such as $\log(0)$ and ensuring stable gradients.
+    \item Organize learning in epochs, where each epoch is a full sweep of the training set using SGD,
+based on the chosen batch sizes
+\end{itemize}
+
+
+\mysubsection{Convolutional Neural Networks (CNNs)}
+\term{Goal:} Process grid-like topology (Images) efficiently.
+\term{Key Inductive Biases:}
+\begin{enumerate}
+    \item \term{Locality / Spatial Coherence:} Neurons connect only to a local region of the input volume (Receptive Field).
+    \item \term{Translation Invariance (Parameter Sharing):} The same feature detector (kernel) is useful at different positions. Weights are shared across space.
+    \item \term{Hierarchical Feature Learning:} Low-level (Edges) $\to$ Mid-level (Shapes) $\to$ High-level (Objects).
+\end{enumerate}
+
+\mysubsection{The Convolution Operation}
+Input Volume: $W_1 \times H_1 \times D_1$.
+Kernel (Filter): $F \times F \times D_1$ (Depth must match input).
+Number of Filters: $K$. Stride: $S$. Padding: $P$.
+\term{Formula:}
+\[ (I * K)_{ij} = \sum_{m=0}^{F-1} \sum_{n=0}^{F-1} \sum_{d=0}^{D_1-1} I(i \cdot S + m, j \cdot S + n, d) \cdot K(m,n,d) + b \]
+\term{Output Dimensions ($W_2 \times H_2 \times D_2$):}
+\[ W_2 = \frac{W_1 - F + 2P}{S} + 1 \]
+\[ H_2 = \frac{H_1 - F + 2P}{S} + 1 \]
+\[ D_2 = K \quad (\text{Number of Filters}) \]
+\term{Padding Types:}
+\begin{itemize}
+    \item \term{Valid:} No padding ($P=0$). Output size shrinks.
+    \item \term{Same:} Pad such that output size equals input size (if $S=1$). Requires $P = (F-1)/2$.
+\end{itemize}
+\term{Parameter Count:}
+Each filter has $F \cdot F \cdot D_1 + 1$ (bias) parameters.
+Total Params = $K \cdot (F^2 D_1 + 1)$.
+
+\mysubsection{Pooling Layers}
+Downsampling operation to reduce spatial size ($W, H$).
+\begin{itemize}
+    \item Operates independently on every depth slice.
+    \item \term{Max Pooling:} Take max value in window. Preserves dominant features.
+    \item \term{Average Pooling:} Take average. Smooths features.
+    \item \term{Global Average Pooling:} Averages entire $W \times H$ map into 1 number per channel. Used before final classification to replace Flatten layer.
+    \item \term{Properties:} No learnable parameters. Improves invariance to small shifts/distortions.
+\end{itemize}
+
+\mysubsection{Transfer Learning}
+Using a pre-trained network (e.g., on ImageNet, 1.2M images) for a new task with limited data.
+\term{Scenarios based on Dataset Size:}
+\begin{enumerate}
+    \item \term{Fixed Feature Extractor:}
+    \begin{itemize}
+        \item Use pre-trained CNN as a frozen vector generator.
+        \item Remove the last fully-connected (FC) layer.
+        \item Train a new linear classifier (or small MLP) on top of the extracted features.
+        \item \textit{Use when:} New dataset is small + similar to original.
+    \end{itemize}
+    \item \term{Fine-Tuning:}
+    \begin{itemize}
+        \item Initialize with pre-trained weights.
+        \item Unfreeze some top layers (or all layers) and train with a very small learning rate.
+        \item \textit{Use when:} New dataset is large, or different from original.
+    \end{itemize}
+\end{enumerate}
+
+
+\mysection{L29: Graph Neural Networks (GNNs)}
+
+\mysubsection{1. Motivation \& Network Modeling}
+\begin{itemize}
+    \item \term{Why GNNs?} Images are Euclidean (grid); Graphs are Non-Euclidean (irregular connections).
+    \item \term{Properties:}
+    \begin{itemize}
+        \item \term{Degree $k_i$:} Number of connections. Dist $P(k)$.
+        \item \term{Clustering Coeff $C_i$:} $2E_i / k_i(k_i-1)$. Fraction of connected neighbors.
+        \item \term{Avg Path Length $\langle h \rangle$:} Mean distance between node pairs.
+        \item \term{Small-World:} High $C$, Low $\langle h \rangle$. (Watts-Strogatz model).
+    \end{itemize}
+    \item \term{Permutation Invariance:} Re-ordering nodes ($v_1, v_2 \to v_2, v_1$) should not change graph output.
+\end{itemize}
+
+\mysubsection{2. Message Passing Neural Networks (MPNN)}
+General framework for spatial GNNs.
+\term{The Core Loop (for layer $l$):}
+\begin{enumerate}
+    \item \term{Message Computation:} For each edge $(u, v)$:
+    \[ m_{u \to v}^{(l)} = \text{MSG}(h_u^{(l-1)}, h_v^{(l-1)}, e_{uv}) \]
+    \item \term{Aggregation:} Collect messages from neighborhood $\mathcal{N}(v)$.
+    \[ m_v^{(l)} = \text{AGG}(\{ m_{u \to v}^{(l)} : u \in \mathcal{N}(v) \}) \]
+    \textit{Aggregators:} Sum, Mean, Max. Must be permutation invariant.
+    \item \term{Update:} Update node state.
+    \[ h_v^{(l)} = \text{UPDATE}(h_v^{(l-1)}, m_v^{(l)}) \]
+\end{enumerate}
+
+\mysubsection{3. Graph Convolutional Network (GCN)}
+Specific MPNN variant using spectral approximation.
+\[ H^{(l+1)} = \sigma \left( \tilde{D}^{-1/2} \tilde{A} \tilde{D}^{-1/2} H^{(l)} W^{(l)} \right) \]
+\begin{itemize}
+    \item $\tilde{A} = A + I_N$ (Adjacency with self-loops).
+    \item $\tilde{D}_{ii} = \sum_j \tilde{A}_{ij}$ (Degree matrix).
+    \item \term{Renormalization:} $\tilde{D}^{-1/2} \tilde{A} \tilde{D}^{-1/2}$ normalizes messages. Without it, features explode (if unnormalized) or vanish (if row-normalized).
+    \item \term{Effect:} Isotropic smoothing of features over neighbors.
+\end{itemize}
+
+\mysubsection{4. GraphSAGE (Inductive Learning)}
+Designed for large graphs where we cannot fit full $A$ in memory.
+\begin{itemize}
+    \item \term{Neighbor Sampling:} Sample fixed size neighborhood (e.g., 10 neighbors) to keep computation constant.
+    \item \term{Aggregation:}
+    \[ h_{\mathcal{N}(v)}^{(l)} = \text{AGG}_l(\{h_u^{(l-1)}, \forall u \in \mathcal{N}(v)\}) \]
+    Aggregators: Mean, LSTM, Max-Pooling.
+    \item \term{Update:} Concat self + neighbor info.
+    \[ h_v^{(l)} = \sigma \left( W^{(l)} \cdot [ h_v^{(l-1)} \| h_{\mathcal{N}(v)}^{(l)} ] \right) \]
+    \item \term{Inductive:} Can generate embeddings for \textit{unseen} nodes (unlike GCN/Transductive).
+\end{itemize}
+
+\mysubsection{5. Graph Attention Network (GAT)}
+Assigns different importance $\alpha_{uv}$ to different neighbors.
+\begin{enumerate}
+    \item \term{Attention Mechanism:}
+    \[ e_{uv} = \text{LeakyReLU}(\vec{a}^T [W h_u \| W h_v]) \]
+    \item \term{Normalization (Softmax):}
+    \[ \alpha_{uv} = \frac{\exp(e_{uv})}{\sum_{k \in \mathcal{N}(u)} \exp(e_{uk})} \]
+    \item \term{Weighted Aggregation:}
+    \[ h_u^{(l+1)} = \sigma \left( \sum_{v \in \mathcal{N}(u)} \alpha_{uv} W h_v^{(l)} \right) \]
+    \item \term{Multi-Head Attention:} Concat results from $K$ independent heads to stabilize learning.
+\end{enumerate}
+
+\mysubsection{6. Tasks \& Readout}
+\begin{itemize}
+    \item \term{Node Classification:} Use final embedding $h_v^{(L)}$. Loss: Cross-entropy on labeled nodes.
+    \item \term{Link Prediction (Edge-level):} Predict existence of edge $(u,v)$.
+    \[ y_{uv} = \text{MLP}(h_u \| h_v) \quad \text{or} \quad h_u^T h_v \]
+    \item \term{Graph Classification (Graph-level):} Aggregate all nodes to get $h_G$.
+    \[ h_G = \text{READOUT}(\{h_v^{(L)} | v \in G\}) \]
+    Methods: Global Sum/Mean Pooling, Hierarchical Pooling (DiffPool).
+\end{itemize}
+
+\mysubsection{7. Issue: Over-smoothing}
+In deep GCNs, repeated averaging makes all node embeddings converge to the same value.
+\term{Solutions:} Skip connections (Residuals), DropEdge.
+
+% =================================================================================
+% PAGE 4: FEDERATED LEARNING & AGENTIC AI
+% =================================================================================
+
+
+\mysection{L30: Federated Learning (FL)}
+
+\mysubsection{1. Motivation \& Concept}
+\begin{itemize}
+    \item \term{Core Idea:} "Bring code to data, not data to code."
+    \item \term{Why?} Data is distributed (phones, hospitals), privacy-sensitive, bandwidth-constrained.
+    \item \term{Definition:} Agents collaborate to train a global model $w$ without sharing raw data $D_k$.
+    \[ \min_w \sum_{k=1}^K \frac{n_k}{n} F_k(w) \quad \text{where } F_k(w) = \frac{1}{n_k} \sum_{i \in D_k} \ell_i(w) \]
+\end{itemize}
+
+\mysubsection{2. FL Architectures}
+\begin{itemize}
+    \item \term{Centralized FL:} Server coordinates, clients train. (Standard).
+    \item \term{Decentralized FL:} P2P gossip learning, no central server.
+    \item \term{Cross-Device:} Millions of mobile/IoT devices, unreliable, low bandwidth.
+    \item \term{Cross-Silo:} Few organizations (hospitals/banks), high reliability, massive data per client.
+\end{itemize}
+
+\mysubsection{3. Algorithms}
+
+\textbf{A. Federated SGD (FedSGD)}
+\begin{itemize}
+    \item Clients compute exact gradient $\nabla F_k(w_t)$ on full local data.
+    \item Server updates: $w_{t+1} = w_t - \eta \sum \frac{n_k}{n} \nabla F_k$.
+    \item \term{Cons:} Very high communication overhead (per step).
+\end{itemize}
+
+\textbf{B. Federated Averaging (FedAvg)}
+The de-facto standard. Clients perform \textit{multiple} local epochs ($E$).
+\term{Protocol Loop:}
+\begin{enumerate}
+    \item \term{Broadcast:} Server sends global model $w_t$ to subset of clients $S_t$.
+    \item \term{Local Training:} Each client $k \in S_t$:
+    \begin{itemize}
+        \item $w_t^k \leftarrow w_t$
+        \item Run $E$ epochs of SGD: $w^k \leftarrow w^k - \eta \nabla \ell(w^k)$
+        \item Send update $\Delta w_k = w_{final}^k - w_t$ (or just weights) to server.
+    \end{itemize}
+    \item \term{Aggregation:} Server averages updates:
+    \[ w_{t+1} \leftarrow w_t + \sum_{k \in S_t} \frac{n_k}{n} \Delta w_k \]
+\end{enumerate}
+\term{Properties:} Increases computation per communication round. Converges on IID data.
+
+\textbf{C. Federated Distillation (FD)}
+Model-Agnostic FL.
+\begin{itemize}
+    \item \term{Problem:} Sending weights is expensive (GBs for LLMs).
+    \item \term{Idea:} Exchange model outputs (logits/soft labels) on a shared public dataset.
+    \item \term{Mechanism:} Clients act as Teachers, Server as Student.
+    \[ L_{distill} = KL(P_{teacher}(y|x) || P_{student}(y|x)) \]
+    \item \term{Pros:} Very low bandwidth. Heterogeneous client architectures allowed.
+\end{itemize}
+
+\mysubsection{4. Key Challenges}
+\begin{itemize}
+    \item \term{Systems Heterogeneity (Stragglers):}
+    Devices have different CPU/Battery. Server must wait for slowest device in synchronous FL.
+    \term{Fix:} Asynchronous aggregation (FedAsync), Timeouts.
+    \item \term{Statistical Heterogeneity (Non-IID Data):}
+    $P_k(x,y) \neq P(x,y)$. (e.g., User A types "Good morning", User B "Bon jour").
+    \term{Effect:} Client Drift. Local updates move towards local minima, average is not global minimum.
+    \term{Fix:} FedProx (add proximal term $\frac{\mu}{2}\|w-w_t\|^2$ to local loss).
+    \item \term{Privacy Leakage:} Gradients can leak data (Model Inversion).
+    \term{Fix:} Differential Privacy (Clip gradients + Add Gaussian noise), Secure Aggregation (MPC).
+\end{itemize}
+
+\mysection{L31: Agentic AI}
+
+\mysubsection{1. Definitions \& Paradigm}
+\begin{itemize}
+    \item \term{Generative AI:} Reactive. User Prompt $\to$ Output. Stateless.
+    \item \term{Agentic AI:} Proactive. Goal $\to$ Plan $\to$ Act $\to$ Iterate. Stateful.
+    \item \term{Core Traits:} Autonomy (Initiative), Tool Use (API/Code), Persistence (Memory).
+\end{itemize}
+
+\mysubsection{2. The Agentic Loop (Cognitive Architecture)}
+Iterative process (Observe-Think-Act).
+\begin{enumerate}
+    \item \term{Perception:} Read environment, user input, tool outputs.
+    \item \term{Memory:}
+    \begin{itemize}
+        \item \term{Short-term:} Context window (conversation history).
+        \item \term{Long-term:} Vector DB / RAG (retrieval).
+    \end{itemize}
+    \item \term{Reasoning (The LLM):}
+    \begin{itemize}
+        \item \term{Decomposition:} Break complex goal into sub-steps.
+        \item \term{Self-Reflection:} Critique past actions ("Did that work?").
+    \end{itemize}
+    \item \term{Planning:} Sequence actions (Chain of Thought).
+    \item \term{Action:} Execute tool calls (Python REPL, Search, Calculator).
+\end{enumerate}
+
+\mysubsection{3. ReAct Framework (Reasoning + Acting)}
+Prompting strategy to interleave thought and action.
+\term{Template:}
+\begin{itemize}
+    \item \term{Thought:} Analyze the current state and decide what to do.
+    \item \term{Action:} Specific tool call (e.g., `search("weather Doha")`).
+    \item \term{Observation:} Output from the tool (e.g., "35C").
+    \item \term{Thought:} Process observation. "I have the info."
+    \item \term{Action:} Final Answer.
+\end{itemize}
+\textit{Why?} Thoughts help maintain reasoning trace; Actions ground LLM in reality.
+
+\mysubsection{4. Tool Use (Function Calling)}
+LLMs don't just output text; they output structured API calls.
+\begin{itemize}
+    \item \term{Input:} Schema of available tools (Name, Args, Docstring).
+    \item \term{Process:} LLM generates JSON arguments. Runtime executes code.
+    % \item \term{Example:} `Code Interpreter` (Sandboxed Python).
+\end{itemize}
+
+\mysubsection{5. Multi-Agent Systems (Swarm 2.0)}
+Decomposing a single "Super Agent" into specialized roles.
+\begin{itemize}
+    \item \term{Analogy:} Software equivalent of MRTA.
+    \item \term{Roles:}
+    \begin{itemize}
+        \item \term{Planner/Manager:} Breaks down user request, delegates.
+        \item \term{Executor/Coder:} Writes code/performs task.
+        \item \term{Reviewer/Critic:} Checks output, gives feedback.
+    \end{itemize}
+    \item \term{Coordination:} Agents communicate via chat messages (Message Passing).
+    \item \term{Advantages:} Specialization (Prompt Engineering per role), Error Isolation, Parallelism.
+    \item \term{Frameworks:} AutoGen, CrewAI, LangGraph.
+\end{itemize}
+
+\mysubsection{6. Future Outlook \& Risks}
+\begin{itemize}
+    \item \term{Integration:} Agents controlling physical robots (VLA: Vision-Language-Action models).
+    \item \term{Alignment Risk:} Autonomous loops can diverge from intent.
+    \item \term{Safety:} Infinite loops, Resource exhaustion, Unintended API calls.
+\end{itemize}
+
+\end{multicols*}
+\end{document}
