@@ -102,7 +102,7 @@ Probabilistic division of labor based on stimulus $s_j$ (task demand) and intern
         \item If agent performs task $j$: $\theta_{ij} \leftarrow \theta_{ij} - \Delta$ (Specialization).
         \item If agent is idle/fails: $\theta_{ij} \leftarrow \theta_{ij} + \delta$ (Forgetting).
     \end{itemize}
-    The sum of the above 2 is the total change in threshold.
+    The net change in threshold is determined by both specialization (decrease when performing the task) and forgetting (increase when idle or failing).
     Adaptive Threshold is considered a hybrid of response threshold and reinforcement learning.
 \end{itemize}
 
